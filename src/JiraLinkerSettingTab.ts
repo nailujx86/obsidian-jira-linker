@@ -1,4 +1,4 @@
-import JiraLinkerPlugin from 'main';
+import JiraLinkerPlugin from './main';
 import { PluginSettingTab, App, Setting, MarkdownView } from 'obsidian';
 
 export default class JiraLinkerSettingTab extends PluginSettingTab {
