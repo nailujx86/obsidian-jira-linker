@@ -1,8 +1,39 @@
-/*
+.jira-link {
+	color: #0052cc;
+	text-decoration: none;
+	font-weight: 500;
+	border-bottom: 1px solid rgba(0, 82, 204, 0.3);
+	transition: all 0.2s ease;
+	padding: 0 2px;
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+	&:hover {
+		color: #003d99;
+		background-color: rgba(0, 82, 204, 0.08);
+		border-bottom-color: #003d99;
+	}
 
-If your plugin does not need CSS, delete this file.
+	&:active {
+		color: #002966;
+	}
 
-*/
+	.jira-link {
+		color: inherit;
+	}
+}
+
+.theme-dark {
+	.jira-link {
+		color: #2684ff;
+		border-bottom-color: rgba(38, 132, 255, 0.3);
+
+		&:hover {
+			color: #4c9aff;
+			background-color: rgba(38, 132, 255, 0.12);
+			border-bottom-color: #4c9aff;
+		}
+
+		&:active {
+			color: #0052cc;
+		}
+	}
+}

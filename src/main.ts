@@ -1,99 +1,153 @@
-import {App, Editor, MarkdownView, Modal, Notice, Plugin} from 'obsidian';
-import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
+import { Plugin } from 'obsidian';
+import { EditorView, Decoration, DecorationSet, ViewPlugin, ViewUpdate } from '@codemirror/view';
+import { Extension, RangeSetBuilder } from '@codemirror/state';
+import JiraLinkProcessor from './JiraLinkProcessor';
+import { JiraLinkerSettingTab } from 'JiraLinkerSettingTab';
 
-// Remember to rename these classes and interfaces!
+interface JiraLinkerSettings {
+	projectMappings: string;
+	enablePreview: boolean;
+	enableEditMode: boolean;
+	cacheEnabled: boolean;
+}
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+const DEFAULT_SETTINGS: JiraLinkerSettings = {
+	projectMappings: 'PROJ=https://jira.atlassian.net',
+	enablePreview: true,
+	enableEditMode: false,
+	cacheEnabled: true,
+};
+
+export default class JiraLinkerPlugin extends Plugin {
+	settings: JiraLinkerSettings;
+	public jiraProcessor: JiraLinkProcessor;
+
+	private readonly editorExtensions: Extension[] = [];
 
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
+		this.jiraProcessor = new JiraLinkProcessor(
+			this.parseProjectMappings()
+		);
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
-
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-modal-simple',
-			name: 'Open modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
+		this.registerMarkdownPostProcessor((element, context) => {
+			if (this.settings.enablePreview) {
+				this.jiraProcessor.processElement(element, this.parseProjectMappings());
 			}
 		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				editor.replaceSelection('Sample editor command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-modal-complex',
-			name: 'Open modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
+		this.registerEditorExtension(this.editorExtensions);
+
+		this.applyEditorExtension();
+
+		this.registerDomEvent(document, 'click', (e: MouseEvent) => {
+			const target = e.target as HTMLElement;
+			if (target.classList.contains('jira-link-editor')) {
+				const url = target.dataset.jiraUrl;
+				if (url) {
+					window.open(url, '_blank');
+					e.preventDefault();
 				}
-				return false;
 			}
 		});
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		this.addSettingTab(new JiraLinkerSettingTab(this.app, this));
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			new Notice("Click");
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-
+		console.log('Jira Linker plugin loaded');
 	}
 
-	onunload() {
+	applyEditorExtension() {
+		this.editorExtensions.length = 0;
+
+		if (this.settings.enableEditMode) {
+			this.editorExtensions.push(this.createEditorExtension(this.jiraProcessor));
+		}
+
+		this.app.workspace.updateOptions();
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+		this.settings = { ...DEFAULT_SETTINGS, ...await this.loadData()};
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
+
+	private parseProjectMappings(): Record<string, string> {
+		const mappings: Record<string, string> = {};
+		const lines = this.settings.projectMappings.split('\n').filter(l => l.trim());
+
+		for (const line of lines) {
+			const [key, url] = line.split('=').map(s => s.trim());
+			if (key && url) {
+				mappings[key.toUpperCase()] = url;
+			}
+		}
+
+		return mappings;
+	}
+
+	private createEditorExtension(processor: JiraLinkProcessor) {
+		return ViewPlugin.fromClass(
+			class {
+				decorations: DecorationSet;
+
+				constructor(view: EditorView) {
+					this.decorations = this.buildDecorations(view);
+				}
+
+				update(update: ViewUpdate) {
+					if (update.docChanged || update.viewportChanged) {
+						this.decorations = this.buildDecorations(update.view);
+					}
+				}
+
+				private buildDecorations(view: EditorView): DecorationSet {
+					const builder = new RangeSetBuilder<Decoration>();
+					const jiraKeyRegex = processor.getJiraKeyRegex();
+
+					for (const { from, to } of view.visibleRanges) {
+						const text = view.state.doc.sliceString(from, to);
+						let match;
+
+						while ((match = jiraKeyRegex.exec(text)) !== null) {
+							const projectKey = match[1] as string;
+							const issueKey = match[0];
+							const url = processor.getJiraUrl(projectKey, issueKey);
+
+							if (url) {
+								const start = from + match.index;
+								const end = start + issueKey.length;
+
+								const decoration = Decoration.mark({
+									class: 'jira-link-editor jira-link',
+									attributes: {
+										'data-jira-url': url,
+										'data-issue-key': issueKey,
+										title: `Open ${issueKey} in Jira`,
+									},
+								});
+
+								builder.add(start, end, decoration);
+							}
+						}
+					}
+
+					return builder.finish();
+				}
+			},
+			{
+				decorations: (v) => v.decorations,
+			}
+		);
+	}
+
+	reloadProjectMappings() {
+		const mappings = this.parseProjectMappings();
+		this.jiraProcessor.setProjectMappings(mappings);
+	}
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
 
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
