@@ -53,8 +53,6 @@ export default class JiraLinkerPlugin extends Plugin {
 		});
 
 		this.addSettingTab(new JiraLinkerSettingTab(this.app, this));
-
-		console.log('Jira Linker plugin loaded');
 	}
 
 	applyEditorExtension() {
@@ -68,7 +66,8 @@ export default class JiraLinkerPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = { ...DEFAULT_SETTINGS, ...await this.loadData()};
+		const loadedData = await this.loadData() as Partial<JiraLinkerSettings> | null;
+		this.settings = { ...DEFAULT_SETTINGS, ...loadedData };
 	}
 
 	async saveSettings() {

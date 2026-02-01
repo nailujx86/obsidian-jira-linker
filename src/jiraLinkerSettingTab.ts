@@ -19,7 +19,7 @@ export default class JiraLinkerSettingTab extends PluginSettingTab {
 		const settingsContainer = groupElem.createDiv({ cls: 'setting-items'});
 
 		new Setting(settingsContainer)
-			.setName('Project Mappings')
+			.setName('Project mappings')
 			.setDesc('Define project keys and their Jira URLs. Format: PROJECT_KEY=https://jira.url (one per line)')
 			.addTextArea(text => text
 				.setPlaceholder('PROJ=https://jira.company.com\nBACK=https://jira.backend.com')
@@ -32,7 +32,7 @@ export default class JiraLinkerSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(settingsContainer)
-			.setName('Enable in Preview Mode')
+			.setName('Enable in preview mode')
 			.setDesc('Show clickable links in preview/reading mode')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enablePreview)
@@ -44,7 +44,7 @@ export default class JiraLinkerSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(settingsContainer)
-			.setName('Enable in Edit Mode')
+			.setName('Enable in edit mode')
 			.setDesc('Show clickable links while editing')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableEditMode)
