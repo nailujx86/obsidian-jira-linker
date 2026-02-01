@@ -1,5 +1,5 @@
 {
-	"id": "obsidian-jira-auto-linker",
+	"id": "jira-auto-linker",
 	"name": "Jira Auto Linker",
 	"version": "1.0.0",
 	"minAppVersion": "1.11.5",
