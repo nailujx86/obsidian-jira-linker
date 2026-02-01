@@ -1,8 +1,8 @@
 import { Plugin } from 'obsidian';
 import { EditorView, Decoration, DecorationSet, ViewPlugin, ViewUpdate } from '@codemirror/view';
 import { Extension, RangeSetBuilder } from '@codemirror/state';
-import JiraLinkProcessor from './JiraLinkProcessor';
-import { JiraLinkerSettingTab } from 'JiraLinkerSettingTab';
+import JiraLinkerSettingTab from 'jiraLinkerSettingTab';
+import JiraLinkProcessor from 'jiraLinkProcessor';
 
 interface JiraLinkerSettings {
 	projectMappings: string;
